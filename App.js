@@ -88,7 +88,7 @@ app.get('/monthlyExpenseSheet',(req,res) =>{
             }
         },
         { "$match": {
-            $and : [ {"month": 5}, {"userID" : "abc"}]
+            $and : [ {"month": req.query.month}, {"userID" : req.query.userID}]
         }}
     ],(err,data) =>{
         if (err) return res.status(500).send(err);
