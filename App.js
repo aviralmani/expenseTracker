@@ -29,7 +29,7 @@ app.get('/', (req,res)=>{
 
 app.get('/getExpense', (req,res)=>{
     // console.log(req.query.startDate);
-    let startDate = new Date(req.query.startDate).toISOString();
+    let startDate = new Date(req.query.startDate).toISOString(); //2019-05-27
     let endDate = new Date(req.query.endDate).toISOString();
 
     expense.find(
@@ -40,16 +40,15 @@ app.get('/getExpense', (req,res)=>{
         // {
         //     $and : [{'userID' :req.params.userID},
         //             {'date' :{'$gte': startDate, '$lte': endDate }}]},
-                    (err,data)=>{
+        (err,data)=>{
         if (err) {
-            return res.status(500).send(err);
+            return res.status(500).send({success: false, errorMessage:err});
         }
-        if (!data) {        
-            return res.status(404).send("No expense found for the given time period");
+        if (!data.length) {        
+            return res.status(404).send({success: false, errorMessage:"No expense found for the given time period"});
         }
-        return res.status(200).send(data);
+        return res.status(200).send({success: true, data:data});
     });
-
 });
 
 app.post('/addExpense',(req,res)=>{
@@ -67,14 +66,14 @@ app.post('/addExpense',(req,res)=>{
             res.send({success: false, errorMessage: "There is an error in saving the expense"})    
         }
         console.log(result);    
-        res.send(({response: result.expenseTitle + " expense saved to expense tracker.", newExpense}));
+        res.send(({success: true, response: result.expenseTitle + " expense saved to expense tracker.", newExpense}));
       });
 })
 
 app.get('/monthlyExpenseSheet',(req,res) =>{ 
     let tempPath = os.tmpdir();
     tempPath = tempPath + '\\file.csv';
-
+        
     expense.aggregate([
         { "$project": {
             "title" : 1,
@@ -84,16 +83,18 @@ app.get('/monthlyExpenseSheet',(req,res) =>{
             "date" : 1,
             "userID" : 1,
             "expenseTitle" : 1,
-            "month": { "$month": "$date" }
+            "month": { "$month": "$date" },
+            "year": { "$year": "$date" }
             }
         },
         { "$match": {
-            $and : [ {"month": req.query.month}, {"userID" : req.query.userID}]
+            $and : [ {"month": parseInt(req.query.month)},{"year": parseInt(req.query.year)}, {"userID" : req.query.userID} ]
         }}
     ],(err,data) =>{
-        if (err) return res.status(500).send(err);
-        if (!data) {        
-            return res.status(404).send("No expense found for the given time period");
+        
+        if (err) return res.status(500).send({success: false, errorMessage:err});
+        if (!data.length) {        
+            return res.status(404).send({success: false, errorMessage:"No expense found for the given time period"});
         }
 
         console.log(data);
@@ -107,8 +108,9 @@ app.get('/monthlyExpenseSheet',(req,res) =>{
             fs.writeFile(tempPath, csv, function(err) {
             if (err) throw err;
             console.log('file saved');
-            console.log(tempPath);
-            res.sendFile(tempPath);
+            // console.log(tempPath);
+
+            res.set('Content-Type', 'text/csv').download(tempPath,'ExpenseSheetfile.csv');
             });
         },options)
     })
