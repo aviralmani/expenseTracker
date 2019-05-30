@@ -1,6 +1,7 @@
 //For database
 const mongoose = require('mongoose');
-const expense = require('./Expense_Schema.js');
+const expense = require('./schema/Expense_Schema.js');
+const metadata = require('./schema/Metadata_Schema.js');
 const db = 'mongodb://localhost:27017/expenseTracker';
 
 //For API
@@ -8,13 +9,16 @@ const express = require('express');
 const app = express();
 const port = 8080;  
 const bodyParse = require('body-parser');
-// const moment = require("moment");
+const moment = require("moment");
 
 //For generating CSV
 const converter = require('json-2-csv');
 const fs = require("fs");
 const os = require("os");
 app.use(bodyParse.json());   // to extract data for post request from the body.
+
+//For sending Email
+const Request = require("request");
 
 mongoose.connect(db,(err)=>{
     if (err) throw err; 
@@ -35,7 +39,7 @@ app.get('/getExpense', (req,res)=>{
     expense.find(
         {
             'userID' :req.query.userID,
-            'date' :{'$gte': startDate, '$lte': endDate }
+            $and :[{'date' : {'$gte' : moment(startDate).toISOString()}},{'date': {'$lte':moment(endDate).toISOString()}}]
         },
         // {
         //     $and : [{'userID' :req.params.userID},
@@ -52,6 +56,7 @@ app.get('/getExpense', (req,res)=>{
 });
 
 app.post('/addExpense',(req,res)=>{
+    
     let newExpense= new expense();
     
     newExpense.userID = req.body.userID;
@@ -68,6 +73,35 @@ app.post('/addExpense',(req,res)=>{
         console.log(result);    
         res.send(({success: true, response: result.expenseTitle + " expense saved to expense tracker.", newExpense}));
       });
+      
+    // Trigger mail
+    
+    metadata.findOne(
+        {
+            'userID' :req.body.userID,
+        },(err,data)=>{
+            if (err){
+                console.log("There is error in sending Email. Invalid user");
+            }
+            console.log(data)
+            console.log(data.managerEmail);
+            Request.post({
+                "headers": { "content-type": "application/json" },
+                "url": "https://chatteron.io/api/mail",
+                "body": JSON.stringify({
+                    "mail" :{
+                        "html":"New expense is added by UserID - " + req.body.userID +" is waiting for your approval.",
+                        "subject":"New expense added",
+                        "to": data.managerEmail
+                        }
+                    })
+                }, (error) => {
+                if(error) {
+                    console.dir(error);
+                   }
+                console.log("Mail has successfully sent");
+            });
+        })
 })
 
 app.get('/monthlyExpenseSheet',(req,res) =>{ 
@@ -116,6 +150,32 @@ app.get('/monthlyExpenseSheet',(req,res) =>{
     })
 })
 
+app.put('/approveBill',(req,res)=>{
+
+    metadata.find(
+        {
+            'userID' :req.query.userID,
+            'isApproved' : false
+        }
+)
+})
+
+
+app.post('/addMetadata',(req,res)=>{
+    let metaData= new metadata();
+    
+    metaData.userID = req.body.userID;
+    metaData.managerEmail = req.body.managerEmail;
+     
+    metaData.save((err, result) => {
+        if (err) {
+            console.error(err);
+            res.send({success: false, errorMessage: "There is an error in saving the metadata"})    
+        }
+        console.log(result);    
+        res.send(({success: true, response: result.managerEmail + " saved to database.", metaData}));
+      });
+})
 
 app.listen(port,(err)=>{
     if (err) throw err;
