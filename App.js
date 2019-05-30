@@ -1,3 +1,4 @@
+/*jshint esversion: 6 */
 //For database
 const mongoose = require('mongoose');
 const expense = require('./schema/Expense_Schema.js');
@@ -62,10 +63,19 @@ app.post('/addExpense',(req,res)=>{
     newExpense.userID = req.body.userID;
     newExpense.expenseTitle = req.body.expenseTitle;
     newExpense.currency = req.body.currency;
-    newExpense.amount = req.body.amount;
+    newExpense.amount = (req.body.amount);
     newExpense.recipt = req.body.recipt;    
 
-    newExpense.save((err, result) => {
+    metadata.findOne(
+        {
+            'userID' :req.body.userID,
+        },(err,data)=>{
+            if (err){
+                console.log("Error in finding the manager for the employee");
+            }
+            newExpense.approver=data.managerEmail;
+
+        newExpense.save((err, result) => {
         if (err) {
             console.error(err);
             res.send({success: false, errorMessage: "There is an error in saving the expense"})    
@@ -74,13 +84,7 @@ app.post('/addExpense',(req,res)=>{
         res.send(({success: true, response: result.expenseTitle + " expense saved to expense tracker.", newExpense}));
 
     // Trigger mail
-    metadata.findOne(
-        {
-            'userID' :req.body.userID,
-        },(err,data)=>{
-            if (err){
-                console.log("There is error in sending Email. Invalid user");
-            }
+    
             console.log(data)
             console.log(data.managerEmail);
             Request.post({
@@ -100,9 +104,7 @@ app.post('/addExpense',(req,res)=>{
                 console.log("Mail has successfully sent");
             });
         })
-      
-    });
-    
+    })
 })
 
 app.get('/monthlyExpenseSheet',(req,res) =>{ 
@@ -118,6 +120,8 @@ app.get('/monthlyExpenseSheet',(req,res) =>{
             "date" : 1,
             "userID" : 1,
             "expenseTitle" : 1,
+            "approver":1,
+            "isApproved":1,
             "month": { "$month": "$date" },
             "year": { "$year": "$date" }
             }
@@ -134,7 +138,7 @@ app.get('/monthlyExpenseSheet',(req,res) =>{
 
         console.log(data);
         options = {
-            keys : ["date","expenseTitle","currency","amount","recipt"]
+            keys : ["date","expenseTitle","currency","amount","recipt","approver","isApproved"]
            }
     
         converter.json2csv(data, (err,csv)=>{
@@ -151,12 +155,20 @@ app.get('/monthlyExpenseSheet',(req,res) =>{
     })
 })
 
-app.put('/approveBill',(req,res)=>{
+app.get('/unApproveBills',(req,res)=>{
 
-    metadata.find(
+    expense.find(
         {
-            'userID' :req.query.userID,
+            'approver' :req.query.emailID,
             'isApproved' : false
+        },(err,data)=>{
+            if (err) {
+                return res.status(500).send({success: false, errorMessage:err});
+            }
+            if (!data.length) {        
+                return res.status(404).send({success: false, errorMessage:"Hurrah!! You dont have any bills to approve."});
+            }
+            return res.status(200).send({success: true, data:data});
         }
 )
 })
@@ -175,6 +187,16 @@ app.post('/addMetadata',(req,res)=>{
         console.log(result);    
         res.send(({success: true, response: result.managerEmail + " saved to database.", metaData}));
       });
+})
+
+app.put('/ApproveBill',(req,res)=>{
+
+    expense.findOneAndUpdate({'_id' : req.body.bill_id}, {$set:{'isApproved':true}}, {new: true}, (err, data) => {
+        if (err) {
+            res.send({success: false, errorMessage: "Opps!! Something went wrong while approving the bill."});
+        }
+        res.send({success: true, response: "The bill request is successfully been approved.", data});
+    });
 })
 
 app.listen(port,(err)=>{
