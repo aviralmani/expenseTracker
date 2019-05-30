@@ -56,57 +56,6 @@ app.get('/getExpense', (req,res)=>{
     });
 });
 
-app.post('/addExpense',(req,res)=>{
-    
-    let newExpense= new expense();
-    
-    newExpense.userID = req.body.userID;
-    newExpense.expenseTitle = req.body.expenseTitle;
-    newExpense.currency = req.body.currency;
-    newExpense.amount = (req.body.amount);
-    newExpense.recipt = req.body.recipt;    
-
-    metadata.findOne(
-        {
-            'userID' :req.body.userID,
-        },(err,data)=>{
-            if (err){
-                console.log("Error in finding the manager for the employee");
-            }
-            newExpense.approver=data.managerEmail;
-
-        newExpense.save((err, result) => {
-        if (err) {
-            console.error(err);
-            res.send({success: false, errorMessage: "There is an error in saving the expense"})    
-        }
-        console.log(result);    
-        res.send(({success: true, response: result.expenseTitle + " expense saved to expense tracker.", newExpense}));
-
-    // Trigger mail
-    
-            console.log(data)
-            console.log(data.managerEmail);
-            Request.post({
-                "headers": { "content-type": "application/json" },
-                "url": "https://chatteron.io/api/mail",
-                "body": JSON.stringify({
-                    "mail" :{
-                        "html":"New expense is added by UserID - " + req.body.userID +" is waiting for your approval.",
-                        "subject":"New expense added",
-                        "to": data.managerEmail
-                        }
-                    })
-                }, (error) => {
-                if(error) {
-                    console.dir(error);
-                   }
-                console.log("Mail has successfully sent");
-            });
-        })
-    })
-})
-
 app.get('/monthlyExpenseSheet',(req,res) =>{ 
     let tempPath = os.tmpdir();
     tempPath = tempPath + '\\file.csv';
@@ -171,6 +120,57 @@ app.get('/unApproveBills',(req,res)=>{
             return res.status(200).send({success: true, data:data});
         }
 )
+})
+
+app.post('/addExpense',(req,res)=>{
+    
+    let newExpense= new expense();
+    
+    newExpense.userID = req.body.userID;
+    newExpense.expenseTitle = req.body.expenseTitle;
+    newExpense.currency = req.body.currency;
+    newExpense.amount = req.body.amount;
+    newExpense.recipt = req.body.recipt;    
+
+    metadata.findOne(
+        {
+            'userID' :req.body.userID,
+        },(err,data)=>{
+            if (err){
+                console.log("Error in finding the manager for the employee");
+            }
+            newExpense.approver=data.managerEmail;
+
+        newExpense.save((err, result) => {
+        if (err) {
+            console.error(err);
+            res.send({success: false, errorMessage: "There is an error in saving the expense"})    
+        }
+        console.log(result);    
+        res.send(({success: true, response: result.expenseTitle + " expense saved to expense tracker.", newExpense}));
+
+    // Trigger mail
+    
+            console.log(data)
+            console.log(data.managerEmail);
+            Request.post({
+                "headers": { "content-type": "application/json" },
+                "url": "https://chatteron.io/api/mail",
+                "body": JSON.stringify({
+                    "mail" :{
+                        "html":"New expense is added by UserID - " + req.body.userID +" is waiting for your approval.",
+                        "subject":"New expense added",
+                        "to": data.managerEmail
+                        }
+                    })
+                }, (error) => {
+                if(error) {
+                    console.dir(error);
+                   }
+                console.log("Mail has successfully sent");
+            });
+        })
+    })
 })
 
 app.post('/addMetadata',(req,res)=>{
