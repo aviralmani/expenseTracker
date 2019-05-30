@@ -72,10 +72,8 @@ app.post('/addExpense',(req,res)=>{
         }
         console.log(result);    
         res.send(({success: true, response: result.expenseTitle + " expense saved to expense tracker.", newExpense}));
-      });
-      
+
     // Trigger mail
-    
     metadata.findOne(
         {
             'userID' :req.body.userID,
@@ -102,6 +100,9 @@ app.post('/addExpense',(req,res)=>{
                 console.log("Mail has successfully sent");
             });
         })
+      
+    });
+    
 })
 
 app.get('/monthlyExpenseSheet',(req,res) =>{ 
@@ -159,7 +160,6 @@ app.put('/approveBill',(req,res)=>{
         }
 )
 })
-
 
 app.post('/addMetadata',(req,res)=>{
     let metaData= new metadata();
